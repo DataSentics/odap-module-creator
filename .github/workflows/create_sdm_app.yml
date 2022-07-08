@@ -1,0 +1,85 @@
+name: Create SDM App
+
+on:
+  workflow_call:
+    inputs:
+      sdm_module:
+        required: true
+        type: string
+
+jobs:
+  release:
+    name: Create SDM App
+    runs-on: ubuntu-latest
+    if: "startsWith(github.event.head_commit.message, 'bump version to')"
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          ref: ${{ github.ref }}
+
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.8.10'
+
+      - name: Install setuptools and wheel
+        run: |
+          pip install setuptools wheel
+
+      - name: Install Poetry
+        uses: snok/install-poetry@v1.1.1
+        with:
+          version: 1.1.8
+
+      - name: Download wheels
+        run: |
+          mkdir wheels
+          poetry export --without-hashes --output ./requirements.txt
+          python -m pip wheel -w ./wheels -r ./requirements.txt
+
+      - name: Create a final zip
+        run: |
+          zip -r ./${{ inputs.sdm_module }}.zip ./install.sh ./install_config.json ./pyproject.toml ./src ./tools ./wheels ./requirements.txt
+
+      - name: Extract version
+        id: extract_version
+        uses: frabert/replace-string-action@v1.1
+        with:
+          pattern: '^bump version to ([^\n]+).*$'
+          string: ${{ github.event.head_commit.message }}
+          replace-with: '$1'
+          flags: 's'
+
+      - name: Extract prerelease
+        id: extract_prerelease
+        uses: frabert/replace-string-action@v1.1
+        with:
+          pattern: '^[\d.]+(\.dev[\d]+|a[\d]+|b[\d]+|rc[\d]+)?$'
+          string: ${{ steps.extract_version.outputs.replaced }}
+          replace-with: '$1'
+
+      - name: Show extracted version
+        run: echo "${{ steps.extract_version.outputs.replaced }}"
+
+      - name: Show extracted prerelease
+        run: echo "${{ steps.extract_prerelease.outputs.replaced }}"
+
+      - name: Create GitHub release
+        id: create_release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: 'v${{ steps.extract_version.outputs.replaced }}'
+          name: 'Release ${{ steps.extract_version.outputs.replaced }}'
+          generate_release_notes: true
+          draft: false
+          prerelease: ${{ steps.extract_prerelease.outputs.replaced != '' }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload Release Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ${{ inputs.sdm_module }}.zip
+          asset_name: ${{ inputs.sdm_module }}.zip
+          asset_content_type: application/zip

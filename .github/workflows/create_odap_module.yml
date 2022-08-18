@@ -1,15 +1,15 @@
-name: Create SDM App
+name: Create ODAP Module
 
 on:
   workflow_call:
     inputs:
-      sdm_module:
+      odap_module:
         required: true
         type: string
 
 jobs:
   release:
-    name: Create SDM App
+    name: Create ODAP Module
     runs-on: ubuntu-latest
     if: "startsWith(github.event.head_commit.message, 'bump version to')"
     steps:
@@ -38,7 +38,7 @@ jobs:
 
       - name: Create a final zip
         run: |
-          zip -r ./${{ inputs.sdm_module }}.zip ./install.sh ./install_config.json ./pyproject.toml ./src ./tools ./wheels ./requirements.txt
+          zip -r ./${{ inputs.odap_module }}.zip ./install.sh ./install_config.json ./pyproject.toml ./src ./tools ./wheels ./requirements.txt
 
       - name: Extract version
         id: extract_version
@@ -80,6 +80,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ${{ inputs.sdm_module }}.zip
-          asset_name: ${{ inputs.sdm_module }}.zip
+          asset_path: ${{ inputs.odap_module }}.zip
+          asset_name: ${{ inputs.odap_module }}.zip
           asset_content_type: application/zip
